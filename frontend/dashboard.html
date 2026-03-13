@@ -108,6 +108,10 @@
     <div id="amountWarningInline" style="display:none; margin: -8px 0 12px; padding: 10px 14px; background: rgba(255,184,0,0.08); border: 1px solid rgba(255,184,0,0.4); font-family: var(--font-mono); font-size: 11px; color: var(--orange); letter-spacing: 1px;">
       &#x26A0; High-value transaction &mdash; additional verification may apply.
     </div>
+    <!-- PANIC ALERT inside form -->
+    <div id="panicBanner" style="display:none; margin: 0 0 12px; padding: 10px 14px; background: rgba(255,59,92,0.1); border: 1px solid rgba(255,59,92,0.5); font-family: var(--font-mono); font-size: 11px; color: var(--red); letter-spacing: 1px;">
+      &#x1F6A8; Rapid clicking detected &mdash; possible panic or coercion. Transaction paused.
+    </div>
     <div class="modal-buttons">
       <button onclick="submitMoneyWithCheck()">Submit Transaction</button>
       <button class="btn-close" onclick="closeForms()">Close</button>
@@ -116,15 +120,24 @@
   </div>
 </div>
 
-<!-- HIGH VALUE WARNING POPUP -->
+<!-- HIGH VALUE WARNING POPUP (with cooldown + panic) -->
 <div id="highValueWarning" class="modal" style="z-index: 2000;">
   <div class="modal-content" style="border-color: rgba(255,184,0,0.6); box-shadow: 0 0 40px rgba(255,184,0,0.2), inset 0 0 40px rgba(0,0,0,0.5);">
     <div style="position:absolute; top:0; left:0; right:0; height:2px; background: linear-gradient(90deg, transparent, var(--orange), transparent);"></div>
-    <div style="text-align:center; margin-bottom: 20px;">
+
+    <!-- PANIC MODE header (hidden by default) -->
+    <div id="panicHeader" style="display:none; text-align:center; margin-bottom:16px; padding:12px; background:rgba(255,59,92,0.1); border:1px solid rgba(255,59,92,0.4);">
+      <div style="font-size:28px;">&#x1F6A8;</div>
+      <div style="font-family:var(--font-mono); font-size:11px; color:var(--red); letter-spacing:2px; margin-top:6px;">PANIC DETECTED &mdash; TRANSACTION BLOCKED</div>
+      <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); margin-top:4px;">Rapid clicking behaviour flagged. Please verify you are acting freely.</div>
+    </div>
+
+    <div style="text-align:center; margin-bottom: 20px;" id="warnIcon">
       <div style="font-size: 40px; margin-bottom: 12px;">&#x26A0;</div>
       <h3 style="color: var(--orange); font-size: 14px; letter-spacing: 3px;">High-Value Transaction</h3>
     </div>
-    <div style="background: rgba(255,184,0,0.06); border: 1px solid rgba(255,184,0,0.2); padding: 16px; margin-bottom: 20px;">
+
+    <div style="background: rgba(255,184,0,0.06); border: 1px solid rgba(255,184,0,0.2); padding: 16px; margin-bottom: 16px;">
       <p style="font-family: var(--font-mono); font-size: 12px; color: var(--text); letter-spacing: 1px; line-height: 1.7; margin: 0;">
         Transaction amount exceeds <span style="color:var(--orange); font-weight:bold;">&#x20B9;10,000</span>.<br>
         This triggers enhanced fraud screening.<br><br>
@@ -132,26 +145,195 @@
         <span style="color: var(--text-dim);">Amount:</span> <span id="warnAmount" style="color:var(--orange);"></span>
       </p>
     </div>
-    <p style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:1px; text-align:center; margin-bottom:20px;">
+
+    <!-- COOLDOWN TIMER BAR -->
+    <div id="cooldownSection" style="margin-bottom:16px;">
+      <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; text-align:center; margin-bottom:8px;">
+        &#x23F3; COOLING OFF PERIOD &mdash; <span id="cooldownLabel">Review your transaction carefully</span>
+      </div>
+      <div style="width:100%; height:8px; background:rgba(255,255,255,0.06); border:1px solid var(--border); overflow:hidden;">
+        <div id="cooldownBar" style="height:100%; width:100%; background:var(--orange); transition:width 1s linear;"></div>
+      </div>
+      <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); text-align:center; margin-top:6px; letter-spacing:1px;">
+        Proceed button unlocks in <span id="cooldownSecs" style="color:var(--orange); font-weight:bold;">10</span>s
+      </div>
+    </div>
+
+    <!-- Click rate meter -->
+    <div id="clickMeter" style="margin-bottom:16px; padding:10px 14px; background:rgba(0,234,255,0.03); border:1px solid var(--border);">
+      <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:6px;">CLICK BEHAVIOUR MONITOR</div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="flex:1; height:6px; background:rgba(255,255,255,0.06); border:1px solid var(--border); overflow:hidden;">
+          <div id="clickRateBar" style="height:100%; width:0%; background:var(--green); transition:width 0.3s;"></div>
+        </div>
+        <span id="clickRateLabel" style="font-family:var(--font-mono); font-size:10px; color:var(--green); letter-spacing:1px; min-width:60px;">CALM</span>
+      </div>
+    </div>
+
+    <p style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:1px; text-align:center; margin-bottom:16px;" id="warnQuestion">
       Do you want to proceed with this transaction?
     </p>
-    <div class="modal-buttons">
-      <button onclick="confirmHighValueTransaction()" style="background: rgba(255,184,0,0.15); border-color: rgba(255,184,0,0.6); color: var(--orange);">
-        &#x2714; Proceed Anyway
+
+    <div class="modal-buttons" id="warnButtons">
+      <button id="proceedBtn" onclick="confirmHighValueTransaction()" disabled
+        style="background:rgba(255,184,0,0.05); border-color:rgba(255,184,0,0.2); color:rgba(255,184,0,0.3); cursor:not-allowed;">
+        &#x23F3; Wait...
       </button>
       <button class="btn-close" onclick="cancelHighValueTransaction()">&#x2718; Cancel</button>
     </div>
   </div>
 </div>
 
+<!-- PANIC BLOCKED POPUP -->
+<div id="panicBlockedPopup" class="modal" style="z-index: 3000;">
+  <div class="modal-content" style="border-color:rgba(255,59,92,0.6); box-shadow:0 0 40px rgba(255,59,92,0.25);">
+    <div style="position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--red),transparent);"></div>
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="font-size:44px; margin-bottom:12px;">&#x1F6A8;</div>
+      <h3 style="color:var(--red); font-size:14px; letter-spacing:3px;">TRANSACTION BLOCKED</h3>
+    </div>
+    <div style="background:rgba(255,59,92,0.06); border:1px solid rgba(255,59,92,0.2); padding:16px; margin-bottom:20px;">
+      <p style="font-family:var(--font-mono); font-size:12px; color:var(--text); letter-spacing:1px; line-height:1.8; margin:0; text-align:center;">
+        Abnormal clicking behaviour detected.<br>
+        This may indicate <span style="color:var(--red);">panic, coercion, or fraud.</span><br><br>
+        Transaction has been <strong style="color:var(--red);">automatically blocked</strong><br>for your protection.
+      </p>
+    </div>
+    <div class="modal-buttons">
+      <button onclick="dismissPanicBlock()" style="background:rgba(255,59,92,0.15); border-color:rgba(255,59,92,0.6); color:var(--red);">
+        &#x2714; I Understand
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
+  /* ── PANIC / CLICK MONITOR (reads from global behaviorMonitor) ──────── */
+  var _panicDetected     = false;
+  var _clickRateInterval = null;
+
+  function startClickMonitor() {
+    _panicDetected = false;
+    updateClickMeter(0);
+
+    // Poll the global click rate every 400ms
+    _clickRateInterval = setInterval(function() {
+      var rate = (typeof getClickRate === "function") ? getClickRate() : 0;
+      updateClickMeter(rate);
+
+      // Panic threshold: > 4 clicks/sec from global monitor
+      if (rate > 4 && !_panicDetected) {
+        triggerPanic();
+      }
+    }, 400);
+  }
+
+  function stopClickMonitor() {
+    clearInterval(_clickRateInterval);
+    _clickRateInterval = null;
+  }
+
+  // recordModalClick no longer needed — global listener covers it
+  function recordModalClick() {}
+
+  function updateClickMeter(rate) {
+    var bar   = document.getElementById("clickRateBar");
+    var label = document.getElementById("clickRateLabel");
+    if (!bar) return;
+
+    var pct = Math.min(rate / 7 * 100, 100);
+    bar.style.width = pct + "%";
+
+    if (rate < 1) {
+      bar.style.background = "var(--green)";
+      label.style.color    = "var(--green)";
+      label.textContent    = "CALM";
+    } else if (rate < 4) {
+      bar.style.background = "var(--orange)";
+      label.style.color    = "var(--orange)";
+      label.textContent    = "ELEVATED";
+    } else {
+      bar.style.background = "var(--red)";
+      label.style.color    = "var(--red)";
+      label.textContent    = "PANIC!";
+    }
+  }
+
+  function triggerPanic() {
+    _panicDetected = true;
+    stopClickMonitor();
+
+    document.getElementById("panicHeader").style.display  = "block";
+    document.getElementById("warnIcon").style.display     = "none";
+    document.getElementById("warnQuestion").style.display = "none";
+
+    var btn = document.getElementById("proceedBtn");
+    btn.textContent       = "\uD83D\uDEAB Blocked";
+    btn.style.color       = "rgba(255,59,92,0.4)";
+    btn.style.borderColor = "rgba(255,59,92,0.3)";
+    btn.disabled          = true;
+
+    document.getElementById("panicBanner").style.display = "block";
+
+    setTimeout(function() {
+      document.getElementById("highValueWarning").style.display  = "none";
+      document.getElementById("panicBlockedPopup").style.display = "flex";
+      updateRisk(95);
+      addLog("Money Transfer (PANIC DETECTED)", 95, "BLOCKED");
+    }, 1500);
+  }
+
+  /* ── COOLDOWN TIMER ────────────────────────────────────────────────── */
+  var _cooldownTimer = null;
+  var COOLDOWN_SECS  = 20;
+
+  function startCooldown() {
+    var remaining = COOLDOWN_SECS;
+    var bar  = document.getElementById("cooldownBar");
+    var secs = document.getElementById("cooldownSecs");
+    var btn  = document.getElementById("proceedBtn");
+    var lbl  = document.getElementById("cooldownLabel");
+
+    bar.style.transition = "none";
+    bar.style.width = "100%";
+
+    // Force reflow so transition resets
+    bar.offsetWidth;
+    bar.style.transition = "width " + COOLDOWN_SECS + "s linear";
+    bar.style.width = "0%";
+
+    _cooldownTimer = setInterval(function() {
+      remaining--;
+      if (secs) secs.textContent = remaining;
+
+      if (remaining <= 0) {
+        clearInterval(_cooldownTimer);
+        if (!_panicDetected) {
+          btn.disabled       = false;
+          btn.textContent    = "\u2714 Proceed Anyway";
+          btn.style.background    = "rgba(255,184,0,0.15)";
+          btn.style.borderColor   = "rgba(255,184,0,0.6)";
+          btn.style.color         = "var(--orange)";
+          btn.style.cursor        = "pointer";
+          if (lbl) lbl.textContent = "You may now proceed";
+          if (secs) secs.textContent = "0";
+          // Hide the timer section label
+          var timerNote = secs.parentElement;
+          if (timerNote) timerNote.style.color = "var(--green)";
+        }
+      }
+    }, 1000);
+  }
+
+  /* ── AMOUNT WARNING ────────────────────────────────────────────────── */
   function checkAmountWarning(val) {
     var warn = document.getElementById("amountWarningInline");
     warn.style.display = (parseFloat(val) > 10000) ? "block" : "none";
   }
 
+  /* ── SUBMIT HANDLER ────────────────────────────────────────────────── */
   function submitMoneyWithCheck() {
-    var amount = parseFloat(document.getElementById("amount").value);
+    var amount    = parseFloat(document.getElementById("amount").value);
     var recipient = document.getElementById("recipient").value.trim();
 
     if (!recipient || isNaN(amount) || amount <= 0) {
@@ -160,81 +342,630 @@
       return;
     }
 
+    // Reset panic banner
+    document.getElementById("panicBanner").style.display = "none";
+
     if (amount > 10000) {
-      document.getElementById("warnRecipient").textContent = recipient || "\u2014";
-      document.getElementById("warnAmount").textContent = "\u20B9" + amount.toLocaleString("en-IN");
-      document.getElementById("moneyForm").style.display = "none";
+      document.getElementById("warnRecipient").textContent = recipient;
+      document.getElementById("warnAmount").textContent    = "\u20B9" + amount.toLocaleString("en-IN");
+
+      // Reset popup state
+      document.getElementById("panicHeader").style.display  = "none";
+      document.getElementById("warnIcon").style.display     = "block";
+      document.getElementById("warnQuestion").style.display = "block";
+      var btn = document.getElementById("proceedBtn");
+      btn.disabled        = true;
+      btn.textContent     = "\u23F3 Wait...";
+      btn.style.background    = "rgba(255,184,0,0.05)";
+      btn.style.borderColor   = "rgba(255,184,0,0.2)";
+      btn.style.color         = "rgba(255,184,0,0.3)";
+      btn.style.cursor        = "not-allowed";
+      document.getElementById("cooldownSecs").textContent = COOLDOWN_SECS;
+      document.getElementById("cooldownLabel").textContent = "Review your transaction carefully";
+
+      document.getElementById("moneyForm").style.display     = "none";
       document.getElementById("highValueWarning").style.display = "flex";
+
+      // Attach click tracker to the warning modal
+      document.getElementById("highValueWarning").addEventListener("click", recordModalClick);
+
+      startCooldown();
+      startClickMonitor();
     } else {
       processMoney();
     }
   }
 
   function confirmHighValueTransaction() {
+    if (_panicDetected) return;
+    stopClickMonitor();
+    clearInterval(_cooldownTimer);
     document.getElementById("highValueWarning").style.display = "none";
     document.getElementById("moneyForm").style.display = "flex";
     processMoney();
   }
 
   function cancelHighValueTransaction() {
+    stopClickMonitor();
+    clearInterval(_cooldownTimer);
     document.getElementById("highValueWarning").style.display = "none";
     document.getElementById("moneyForm").style.display = "flex";
+    document.getElementById("moneyResult").style.color   = "var(--red)";
+    document.getElementById("moneyResult").textContent   = "\u2718 Transaction cancelled by user.";
+  }
+
+  function dismissPanicBlock() {
+    document.getElementById("panicBlockedPopup").style.display = "none";
+    document.getElementById("moneyForm").style.display = "flex";
     document.getElementById("moneyResult").style.color = "var(--red)";
-    document.getElementById("moneyResult").textContent = "\u2718 Transaction cancelled by user.";
+    document.getElementById("moneyResult").textContent = "\u1F6A8 Transaction blocked due to suspicious behaviour.";
   }
 </script>
 
-<!-- SENSITIVE INFO FORM -->
+<!-- ═══════════════════════════════════════════════════════
+     SENSITIVE INFO FORM
+═══════════════════════════════════════════════════════ -->
 <div id="sensitiveForm" class="modal">
-  <div class="modal-content">
-    <h3>Share Sensitive Information</h3>
-    <textarea id="sensitiveText" placeholder="Type message you want to send"></textarea>
-    <div class="modal-buttons">
-      <button onclick="scanSensitive()">Scan Message</button>
-      <button class="btn-close" onclick="closeForms()">Close</button>
+  <div class="modal-content" style="max-width:560px;">
+    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);"></div>
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div style="width:44px;height:44px;background:rgba(0,234,255,0.08);border:1px solid rgba(0,234,255,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));">&#x1F4AC;</div>
+      <div>
+        <h3 style="margin:0;font-size:13px;letter-spacing:3px;color:var(--cyan);">SENSITIVE DATA SCANNER</h3>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:3px;">Detects PII, credentials &amp; financial data before transmission</div>
+      </div>
+      <button onclick="closeForms()" style="margin-left:auto;background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:4px;">&#x2715;</button>
     </div>
-    <p id="sensitiveResult"></p>
+
+    <!-- Threat tags -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+      <span style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border:1px solid rgba(255,59,92,0.3);color:rgba(255,59,92,0.7);letter-spacing:1px;">PASSWORD</span>
+      <span style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border:1px solid rgba(255,59,92,0.3);color:rgba(255,59,92,0.7);letter-spacing:1px;">OTP</span>
+      <span style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border:1px solid rgba(255,184,0,0.3);color:rgba(255,184,0,0.7);letter-spacing:1px;">CARD NUMBER</span>
+      <span style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border:1px solid rgba(255,184,0,0.3);color:rgba(255,184,0,0.7);letter-spacing:1px;">AADHAR / PAN</span>
+      <span style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border:1px solid rgba(0,234,255,0.2);color:rgba(0,234,255,0.5);letter-spacing:1px;">API KEY</span>
+      <span style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border:1px solid rgba(0,234,255,0.2);color:rgba(0,234,255,0.5);letter-spacing:1px;">+15 MORE</span>
+    </div>
+
+    <!-- Textarea with live char count -->
+    <div style="position:relative;margin-bottom:14px;">
+      <textarea id="sensitiveText" placeholder="Paste or type the message you want to scan..."
+        oninput="updateSensitiveCharCount(this)"
+        style="width:100%;min-height:120px;background:rgba(0,234,255,0.03);border:1px solid rgba(0,234,255,0.15);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:12px;resize:vertical;letter-spacing:0.5px;line-height:1.6;box-sizing:border-box;outline:none;"></textarea>
+      <div style="position:absolute;bottom:8px;right:10px;font-family:var(--font-mono);font-size:9px;color:var(--text-dim);" id="sensitiveCharCount">0 chars</div>
+    </div>
+
+    <!-- Scan progress bar (hidden until scan) -->
+    <div id="sensitiveProgress" style="display:none;margin-bottom:14px;">
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:6px;">SCANNING FOR SENSITIVE PATTERNS...</div>
+      <div style="height:4px;background:rgba(255,255,255,0.06);overflow:hidden;">
+        <div id="sensitiveProgressBar" style="height:100%;width:0%;background:var(--cyan);transition:width 1.2s ease;"></div>
+      </div>
+    </div>
+
+    <!-- Result card -->
+    <div id="sensitiveResultCard" style="display:none;margin-bottom:14px;padding:14px;border:1px solid rgba(0,234,255,0.15);background:rgba(0,0,0,0.3);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span id="sensitiveResultIcon" style="font-size:22px;"></span>
+        <div>
+          <div id="sensitiveResultTitle" style="font-family:var(--font-mono);font-size:12px;letter-spacing:2px;font-weight:bold;"></div>
+          <div id="sensitiveResultSub" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:2px;"></div>
+        </div>
+        <div style="margin-left:auto;text-align:right;">
+          <div style="font-family:var(--font-mono);font-size:18px;font-weight:bold;" id="sensitiveRiskNum"></div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">RISK SCORE</div>
+        </div>
+      </div>
+      <div id="sensitiveFoundTags" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+    </div>
+
+    <div class="modal-buttons">
+      <button onclick="scanSensitive()" id="sensitiveBtn">&#x1F50D; Scan Message</button>
+      <button class="btn-close" onclick="closeForms()">&#x2715; Close</button>
+    </div>
+    <p id="sensitiveResult" style="display:none;"></p>
   </div>
 </div>
 
-<!-- DELETE FILE FORM -->
+
+<!-- ═══════════════════════════════════════════════════════
+     DELETE FILE FORM
+═══════════════════════════════════════════════════════ -->
 <div id="deleteForm" class="modal">
-  <div class="modal-content">
-    <h3>Secure File Deletion</h3>
-    <input id="fileName" placeholder="Enter file name">
-    <div class="modal-buttons">
-      <button onclick="deleteFile()">Delete File</button>
-      <button class="btn-close" onclick="closeForms()">Close</button>
+  <div class="modal-content" style="max-width:540px;">
+    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--red),transparent);"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div style="width:44px;height:44px;background:rgba(255,59,92,0.08);border:1px solid rgba(255,59,92,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));">&#x1F5D1;</div>
+      <div>
+        <h3 style="margin:0;font-size:13px;letter-spacing:3px;color:var(--red);">SECURE FILE DELETION</h3>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:3px;">AI-powered threat assessment before permanent deletion</div>
+      </div>
+      <button onclick="closeForms()" style="margin-left:auto;background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:4px;">&#x2715;</button>
     </div>
-    <p id="deleteResult"></p>
+
+    <!-- File input with type detection -->
+    <div style="margin-bottom:14px;">
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">FILE PATH / NAME</div>
+      <div style="display:flex;align-items:center;gap:0;">
+        <div id="fileTypeIcon" style="padding:10px 14px;background:rgba(255,59,92,0.06);border:1px solid rgba(255,59,92,0.2);border-right:none;font-size:18px;">&#x1F4C4;</div>
+        <input id="fileName" placeholder="e.g. /etc/passwd  or  backup.key  or  config.env"
+          oninput="updateFileIcon(this.value)"
+          style="flex:1;background:rgba(255,59,92,0.03);border:1px solid rgba(255,59,92,0.2);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:10px 14px;outline:none;letter-spacing:0.5px;">
+      </div>
+    </div>
+
+    <!-- Protection level indicators -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div class="delete-check" id="dc-system">
+        <span style="font-size:14px;">&#x1F6E1;</span>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;">SYSTEM FILE</div>
+          <div id="dc-system-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div>
+        </div>
+      </div>
+      <div class="delete-check" id="dc-ext">
+        <span style="font-size:14px;">&#x1F4CE;</span>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;">EXTENSION</div>
+          <div id="dc-ext-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div>
+        </div>
+      </div>
+      <div class="delete-check" id="dc-hidden">
+        <span style="font-size:14px;">&#x1F441;</span>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;">HIDDEN FILE</div>
+          <div id="dc-hidden-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div>
+        </div>
+      </div>
+      <div class="delete-check" id="dc-bulk">
+        <span style="font-size:14px;">&#x26A0;</span>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;">BULK DELETE</div>
+          <div id="dc-bulk-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div id="deleteResultCard" style="display:none;padding:14px;border:1px solid rgba(255,59,92,0.2);background:rgba(255,59,92,0.04);margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span id="deleteResultIcon" style="font-size:26px;"></span>
+        <div style="flex:1;">
+          <div id="deleteResultTitle" style="font-family:var(--font-mono);font-size:12px;font-weight:bold;letter-spacing:2px;"></div>
+          <div id="deleteResultMsg" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.6;"></div>
+        </div>
+        <div style="text-align:center;">
+          <div id="deleteRiskNum" style="font-family:var(--font-mono);font-size:22px;font-weight:bold;"></div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">RISK</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-buttons">
+      <button onclick="deleteFile()" style="background:rgba(255,59,92,0.1);border-color:rgba(255,59,92,0.5);color:var(--red);">&#x1F5D1; Delete File</button>
+      <button class="btn-close" onclick="closeForms()">&#x2715; Cancel</button>
+    </div>
+    <p id="deleteResult" style="display:none;"></p>
   </div>
 </div>
 
-<!-- PRIVATE FOLDER FORM -->
+
+<!-- ═══════════════════════════════════════════════════════
+     PRIVATE FOLDER ACCESS FORM
+═══════════════════════════════════════════════════════ -->
 <div id="folderForm" class="modal">
-  <div class="modal-content">
-    <h3>Private Folder Access</h3>
-    <input id="folderPassword" type="password" placeholder="Enter password">
-    <div class="modal-buttons">
-      <button onclick="checkFolderAccess()">Access Folder</button>
-      <button class="btn-close" onclick="closeForms()">Close</button>
+  <div class="modal-content" style="max-width:480px;">
+    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);"></div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <!-- Animated lock icon -->
+      <div id="lockIcon" style="font-size:48px;margin-bottom:12px;transition:all 0.4s;">&#x1F512;</div>
+      <h3 style="margin:0;font-size:13px;letter-spacing:4px;color:var(--orange);">RESTRICTED ACCESS</h3>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:6px;">CLASSIFIED // LEVEL-5 CLEARANCE REQUIRED</div>
     </div>
-    <p id="folderResult"></p>
+
+    <!-- Access attempt counter -->
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px;padding:10px 14px;background:rgba(255,184,0,0.04);border:1px solid rgba(255,184,0,0.15);">
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:1px;">FAILED ATTEMPTS</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--orange);" id="failedAttempts">0 / 3</div>
+    </div>
+
+    <!-- Password field with strength meter -->
+    <div style="margin-bottom:14px;">
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">ACCESS KEY</div>
+      <div style="position:relative;">
+        <input id="folderPassword" type="password" placeholder="Enter access key..."
+          oninput="updatePasswordStrength(this.value)"
+          onkeydown="if(event.key==='Enter')checkFolderAccess()"
+          style="width:100%;background:rgba(255,184,0,0.04);border:1px solid rgba(255,184,0,0.25);color:var(--text);font-family:var(--font-mono);font-size:14px;padding:12px 44px 12px 14px;outline:none;letter-spacing:3px;box-sizing:border-box;">
+        <button id="toggleFolderPw" onclick="toggleFolderPassword()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;">&#x1F441;</button>
+      </div>
+      <!-- Strength meter -->
+      <div style="margin-top:6px;display:flex;gap:3px;" id="pwStrengthBars">
+        <div class="pw-bar" id="pw-b1"></div>
+        <div class="pw-bar" id="pw-b2"></div>
+        <div class="pw-bar" id="pw-b3"></div>
+        <div class="pw-bar" id="pw-b4"></div>
+      </div>
+      <div id="pwStrengthLabel" style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;margin-top:4px;"></div>
+    </div>
+
+    <!-- Auth result -->
+    <div id="folderResultCard" style="display:none;padding:16px;margin-bottom:14px;text-align:center;">
+      <div id="folderResultIcon" style="font-size:36px;margin-bottom:8px;"></div>
+      <div id="folderResultTitle" style="font-family:var(--font-mono);font-size:12px;font-weight:bold;letter-spacing:3px;"></div>
+      <div id="folderResultMsg" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:6px;line-height:1.6;"></div>
+    </div>
+
+    <div class="modal-buttons" id="folderBtns">
+      <button onclick="checkFolderAccess()" style="background:rgba(255,184,0,0.1);border-color:rgba(255,184,0,0.5);color:var(--orange);">&#x1F511; Authenticate</button>
+      <button class="btn-close" onclick="closeForms()">&#x2715; Cancel</button>
+    </div>
+    <p id="folderResult" style="display:none;"></p>
   </div>
 </div>
 
-<!-- URL SCANNER FORM -->
+
+<!-- ═══════════════════════════════════════════════════════
+     URL SCANNER FORM
+═══════════════════════════════════════════════════════ -->
 <div id="linkForm" class="modal">
-  <div class="modal-content">
-    <h3>URL Scanner</h3>
-    <input id="urlInput" placeholder="Paste URL to scan">
-    <div class="modal-buttons">
-      <button onclick="scanURL()">Scan URL</button>
-      <button class="btn-close" onclick="closeForms()">Close</button>
+  <div class="modal-content" style="max-width:580px;">
+    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div style="width:44px;height:44px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;font-size:20px;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));">&#x1F517;</div>
+      <div>
+        <h3 style="margin:0;font-size:13px;letter-spacing:3px;color:var(--green);">PHISHING & URL SCANNER</h3>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:3px;">Deep analysis: domain, TLD, signals, homoglyphs, protocols</div>
+      </div>
+      <button onclick="closeForms()" style="margin-left:auto;background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:4px;">&#x2715;</button>
     </div>
-    <p id="urlResult"></p>
+
+    <!-- URL input with protocol badge -->
+    <div style="margin-bottom:14px;">
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">TARGET URL</div>
+      <input id="urlInput" placeholder="https://example.com/verify-account"
+        oninput="updateURLPreview(this.value)"
+        style="width:100%;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.2);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:12px 14px;outline:none;letter-spacing:0.5px;box-sizing:border-box;">
+    </div>
+
+    <!-- URL anatomy breakdown -->
+    <div id="urlBreakdown" style="display:none;margin-bottom:14px;padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border);">
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">URL ANATOMY</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;" id="urlParts"></div>
+    </div>
+
+    <!-- Threat check grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;" id="urlCheckGrid">
+      <div class="url-check" id="uc-protocol"><span>&#x1F512;</span><div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">PROTOCOL</div><div id="uc-proto-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div></div></div>
+      <div class="url-check" id="uc-tld"><span>&#x1F310;</span><div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">TLD</div><div id="uc-tld-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div></div></div>
+      <div class="url-check" id="uc-ip"><span>&#x1F4BB;</span><div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">IP ADDR</div><div id="uc-ip-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div></div></div>
+      <div class="url-check" id="uc-signals"><span>&#x26A0;</span><div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">SIGNALS</div><div id="uc-signals-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div></div></div>
+      <div class="url-check" id="uc-homoglyph"><span>&#x1F50D;</span><div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">HOMOGLYPH</div><div id="uc-hg-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div></div></div>
+      <div class="url-check" id="uc-sub"><span>&#x1F4CA;</span><div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">SUBDOMAINS</div><div id="uc-sub-val" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">—</div></div></div>
+    </div>
+
+    <!-- Scan animation + result -->
+    <div id="urlScanAnim" style="display:none;margin-bottom:14px;">
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:6px;" id="urlScanLabel">INITIALISING SCAN...</div>
+      <div style="height:4px;background:rgba(255,255,255,0.05);overflow:hidden;">
+        <div id="urlScanBar" style="height:100%;width:0%;background:var(--green);transition:width 1.5s ease;"></div>
+      </div>
+    </div>
+
+    <div id="urlResultCard" style="display:none;padding:14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span id="urlResultIcon" style="font-size:32px;"></span>
+        <div style="flex:1;">
+          <div id="urlResultTitle" style="font-family:var(--font-mono);font-size:13px;font-weight:bold;letter-spacing:3px;"></div>
+          <div id="urlResultMsg" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.6;"></div>
+        </div>
+        <div style="text-align:center;padding:10px 14px;border:1px solid rgba(255,255,255,0.1);">
+          <div id="urlRiskNum" style="font-family:var(--font-mono);font-size:22px;font-weight:bold;"></div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);">RISK</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-buttons">
+      <button onclick="scanURL()">&#x1F50D; Scan URL</button>
+      <button class="btn-close" onclick="closeForms()">&#x2715; Close</button>
+    </div>
+    <p id="urlResult" style="display:none;"></p>
   </div>
 </div>
+
+
+<!-- ═══════ EXTRA STYLES for new modals ═══════ -->
+<style>
+.delete-check, .url-check {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px;
+  background:rgba(255,255,255,0.02);
+  border:1px solid var(--border);
+  font-size:12px;
+}
+.pw-bar {
+  flex:1; height:4px;
+  background:rgba(255,255,255,0.08);
+  transition:background 0.3s;
+}
+</style>
+
+
+<!-- ═══════ UI INTERACTION SCRIPTS for new modals ═══════ -->
+<script>
+/* ── Sensitive form ── */
+function updateSensitiveCharCount(el) {
+  document.getElementById("sensitiveCharCount").textContent = el.value.length + " chars";
+}
+
+/* ── Delete form: live file type icon ── */
+function updateFileIcon(val) {
+  var icon = "&#x1F4C4;";
+  var v = val.toLowerCase();
+  if (v.includes(".key") || v.includes(".pem") || v.includes(".ssh") || v.includes("id_rsa")) icon = "&#x1F511;";
+  else if (v.includes(".env") || v.includes("config") || v.includes("secret")) icon = "&#x2699;";
+  else if (v.includes("backup") || v.includes(".bak")) icon = "&#x1F4BE;";
+  else if (v.includes(".exe") || v.includes(".dll") || v.includes(".sh")) icon = "&#x2699;";
+  else if (v.includes(".db") || v.includes(".sql")) icon = "&#x1F5C4;";
+  else if (v.includes("*") || v.includes("?")) icon = "&#x26A0;";
+  document.getElementById("fileTypeIcon").innerHTML = icon;
+
+  // Live mini-checks
+  var checks = {
+    "dc-system": ["passwd","shadow","sudoers",".ssh","system32","hosts"],
+    "dc-ext":    [".key",".pem",".exe",".dll",".sh",".bash"],
+    "dc-hidden": ["."],
+    "dc-bulk":   ["*","?","%"]
+  };
+  Object.keys(checks).forEach(function(id) {
+    var el  = document.getElementById(id);
+    var val2 = document.getElementById(id + "-val");
+    var hit  = checks[id].some(function(p) { return id === "dc-hidden" ? v.split("/").pop().startsWith(p) : v.includes(p); });
+    el.style.borderColor  = hit ? "rgba(255,59,92,0.4)" : "var(--border)";
+    el.style.background   = hit ? "rgba(255,59,92,0.06)" : "rgba(255,255,255,0.02)";
+    val2.style.color      = hit ? "var(--red)" : "var(--text-dim)";
+    val2.textContent      = hit ? "DETECTED" : "CLEAR";
+  });
+}
+
+/* ── Folder: password toggle ── */
+function toggleFolderPassword() {
+  var inp = document.getElementById("folderPassword");
+  inp.type = inp.type === "password" ? "text" : "password";
+}
+
+/* ── Folder: password strength meter ── */
+var _failedFolderAttempts = 0;
+function updatePasswordStrength(val) {
+  var score = 0;
+  if (val.length >= 6)  score++;
+  if (val.length >= 10) score++;
+  if (/[A-Z]/.test(val) && /[0-9]/.test(val)) score++;
+  if (/[^a-zA-Z0-9]/.test(val)) score++;
+  var colors = ["rgba(255,59,92,0.8)","rgba(255,184,0,0.8)","rgba(0,234,255,0.8)","rgba(0,255,136,0.8)"];
+  var labels = ["VERY WEAK","MODERATE","STRONG","VERY STRONG"];
+  for (var i = 1; i <= 4; i++) {
+    var b = document.getElementById("pw-b" + i);
+    b.style.background = i <= score ? colors[score-1] : "rgba(255,255,255,0.08)";
+  }
+  document.getElementById("pwStrengthLabel").textContent = val.length ? labels[score-1] || "" : "";
+  document.getElementById("pwStrengthLabel").style.color = val.length ? colors[score-1] || "var(--text-dim)" : "var(--text-dim)";
+}
+
+/* ── URL: live anatomy breakdown ── */
+function updateURLPreview(val) {
+  var bd = document.getElementById("urlBreakdown");
+  var parts = document.getElementById("urlParts");
+  if (!val.trim()) { bd.style.display = "none"; return; }
+  bd.style.display = "block";
+  try {
+    var u = val.startsWith("http") ? val : "https://" + val;
+    var parsed = new URL(u);
+    parts.innerHTML = [
+      { label: "PROTOCOL", value: parsed.protocol.replace(":",""), color: parsed.protocol === "https:" ? "var(--green)" : "var(--red)" },
+      { label: "HOST", value: parsed.hostname, color: "var(--cyan)" },
+      { label: "PATH", value: parsed.pathname || "/", color: "var(--text-dim)" },
+      { label: "QUERY", value: parsed.search || "none", color: parsed.search ? "var(--orange)" : "var(--text-dim)" }
+    ].map(function(p) {
+      return '<div style="padding:4px 10px;border:1px solid rgba(255,255,255,0.08);"><div style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);letter-spacing:1px;">' + p.label + '</div><div style="font-family:var(--font-mono);font-size:10px;color:' + p.color + ';max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + p.value + '</div></div>';
+    }).join("");
+  } catch(e) {
+    parts.innerHTML = '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">Invalid URL format</span>';
+  }
+}
+
+/* ── Sensitive scan: show animated result card ── */
+var _origScanSensitive = window.scanSensitive;
+window.scanSensitive = async function() {
+  var text = document.getElementById("sensitiveText").value;
+  if (!text.trim()) return;
+
+  var prog = document.getElementById("sensitiveProgress");
+  var bar  = document.getElementById("sensitiveProgressBar");
+  var card = document.getElementById("sensitiveResultCard");
+  card.style.display = "none";
+  prog.style.display = "block";
+  bar.style.width = "0%";
+  setTimeout(function() { bar.style.width = "100%"; }, 50);
+
+  // Call the real function from main.js
+  var text2 = document.getElementById("sensitiveText").value;
+  var resEl  = document.getElementById("sensitiveResult");
+  resEl.style.display = "none";
+
+  // Wait for animation then call
+  await new Promise(r => setTimeout(r, 400));
+  await _origScanSensitive();
+
+  prog.style.display = "none";
+
+  // Parse result from hidden p tag
+  var raw = resEl.innerText;
+  var decision = raw.includes("BLOCKED") ? "BLOCKED" : raw.includes("WARNING") ? "WARNING" : "SAFE";
+  var riskMatch = raw.match(/Risk:\s*(\d+)/);
+  var risk = riskMatch ? parseInt(riskMatch[1]) : 0;
+  var msgMatch = raw.match(/\d+%\s*\|\s*(.+?)\s*\[/);
+  var msg = msgMatch ? msgMatch[1] : raw;
+
+  var color = decision === "BLOCKED" ? "var(--red)" : decision === "WARNING" ? "var(--orange)" : "var(--green)";
+  var icon  = decision === "BLOCKED" ? "&#x1F6AB;" : decision === "WARNING" ? "&#x26A0;" : "&#x2705;";
+  card.style.display  = "block";
+  card.style.borderColor = decision === "BLOCKED" ? "rgba(255,59,92,0.4)" : decision === "WARNING" ? "rgba(255,184,0,0.4)" : "rgba(0,255,136,0.3)";
+  card.style.background  = decision === "BLOCKED" ? "rgba(255,59,92,0.05)" : decision === "WARNING" ? "rgba(255,184,0,0.05)" : "rgba(0,255,136,0.04)";
+  document.getElementById("sensitiveResultIcon").innerHTML  = icon;
+  document.getElementById("sensitiveResultTitle").style.color = color;
+  document.getElementById("sensitiveResultTitle").textContent = decision;
+  document.getElementById("sensitiveResultSub").textContent   = msg.trim();
+  document.getElementById("sensitiveRiskNum").style.color     = color;
+  document.getElementById("sensitiveRiskNum").textContent     = risk + "%";
+
+  // Found tags
+  var found = (raw.match(/Detected sensitive data: (.+)/) || ["",""])[1];
+  var tagsEl = document.getElementById("sensitiveFoundTags");
+  tagsEl.innerHTML = "";
+  if (found) {
+    found.split(",").forEach(function(f) {
+      var tag = document.createElement("span");
+      tag.style.cssText = "font-family:var(--font-mono);font-size:9px;padding:3px 8px;background:rgba(255,59,92,0.1);border:1px solid rgba(255,59,92,0.3);color:var(--red);letter-spacing:1px;";
+      tag.textContent = f.trim().toUpperCase();
+      tagsEl.appendChild(tag);
+    });
+  }
+};
+
+/* ── Delete scan: animated result card ── */
+var _origDeleteFile = window.deleteFile;
+window.deleteFile = async function() {
+  var fname = document.getElementById("fileName").value.trim();
+  if (!fname) return;
+  document.getElementById("deleteResultCard").style.display = "none";
+  await _origDeleteFile();
+  var raw = document.getElementById("deleteResult").innerText;
+  var decision = raw.includes("BLOCKED") ? "BLOCKED" : raw.includes("WARNING") ? "WARNING" : "ALLOW";
+  var riskMatch = raw.match(/Risk:\s*(\d+)/);
+  var risk = riskMatch ? parseInt(riskMatch[1]) : 0;
+  var msgMatch = raw.match(/\d+%\s*\|\s*(.+?)\s*\[/);
+  var msg = msgMatch ? msgMatch[1] : raw;
+  var color = decision === "BLOCKED" ? "var(--red)" : decision === "WARNING" ? "var(--orange)" : "var(--green)";
+  var icon  = decision === "BLOCKED" ? "&#x1F6AB;" : decision === "WARNING" ? "&#x26A0;" : "&#x2705;";
+  var card = document.getElementById("deleteResultCard");
+  card.style.display = "block";
+  card.style.borderColor = decision === "BLOCKED" ? "rgba(255,59,92,0.4)" : decision === "WARNING" ? "rgba(255,184,0,0.4)" : "rgba(0,255,136,0.3)";
+  card.style.background  = decision === "BLOCKED" ? "rgba(255,59,92,0.05)" : decision === "WARNING" ? "rgba(255,184,0,0.05)" : "rgba(0,255,136,0.04)";
+  document.getElementById("deleteResultIcon").innerHTML = icon;
+  document.getElementById("deleteResultTitle").style.color = color;
+  document.getElementById("deleteResultTitle").textContent = decision;
+  document.getElementById("deleteResultMsg").textContent = msg.trim();
+  document.getElementById("deleteRiskNum").style.color = color;
+  document.getElementById("deleteRiskNum").textContent = risk + "%";
+};
+
+/* ── Folder access: animated result + attempt counter ── */
+var _origFolderAccess = window.checkFolderAccess;
+window.checkFolderAccess = async function() {
+  var lock = document.getElementById("lockIcon");
+  lock.style.filter = "blur(2px)";
+  lock.innerHTML = "&#x1F510;";
+  setTimeout(function() { lock.style.filter = "none"; }, 300);
+  document.getElementById("folderResultCard").style.display = "none";
+  await _origFolderAccess();
+  var raw = document.getElementById("folderResult").innerText;
+  var granted = raw.includes("ACCESS GRANTED");
+  if (!granted) {
+    _failedFolderAttempts++;
+    document.getElementById("failedAttempts").textContent = _failedFolderAttempts + " / 3";
+    if (_failedFolderAttempts >= 3) {
+      document.getElementById("failedAttempts").style.color = "var(--red)";
+      document.getElementById("folderBtns").innerHTML = '<button disabled style="opacity:0.3;cursor:not-allowed;">&#x1F6AB; LOCKED OUT</button><button class="btn-close" onclick="closeForms()">Close</button>';
+    }
+  }
+  var color = granted ? "var(--green)" : "var(--red)";
+  var icon  = granted ? "&#x1F513;" : "&#x1F512;";
+  var card  = document.getElementById("folderResultCard");
+  card.style.display = "block";
+  card.style.background  = granted ? "rgba(0,255,136,0.05)"  : "rgba(255,59,92,0.05)";
+  card.style.border      = granted ? "1px solid rgba(0,255,136,0.3)" : "1px solid rgba(255,59,92,0.3)";
+  document.getElementById("folderResultIcon").innerHTML   = icon;
+  document.getElementById("folderResultTitle").style.color = color;
+  document.getElementById("folderResultTitle").textContent = granted ? "ACCESS GRANTED" : "ACCESS DENIED";
+  var msgMatch = raw.match(/\|\s*(.+?)\s*\[/);
+  document.getElementById("folderResultMsg").textContent  = msgMatch ? msgMatch[1] : "";
+  lock.innerHTML = granted ? "&#x1F513;" : "&#x1F512;";
+};
+
+/* ── URL scan: animated checks + result card ── */
+var _origScanURL = window.scanURL;
+window.scanURL = async function() {
+  var url = document.getElementById("urlInput").value.trim();
+  if (!url) return;
+  var anim  = document.getElementById("urlScanAnim");
+  var bar   = document.getElementById("urlScanBar");
+  var label = document.getElementById("urlScanLabel");
+  var rcard = document.getElementById("urlResultCard");
+  rcard.style.display = "none";
+  anim.style.display  = "block";
+  bar.style.width     = "0%";
+  var steps = ["CHECKING PROTOCOL...","ANALYSING DOMAIN...","SCANNING FOR SIGNALS...","DETECTING HOMOGLYPHS...","COMPUTING RISK SCORE..."];
+  var si = 0;
+  var stepInt = setInterval(function() {
+    if (si < steps.length) { label.textContent = steps[si++]; bar.style.width = (si/steps.length*100) + "%"; }
+    else clearInterval(stepInt);
+  }, 280);
+  await _origScanURL();
+  clearInterval(stepInt);
+  anim.style.display = "none";
+  var raw      = document.getElementById("urlResult").innerText;
+  var decision = raw.includes("PHISHING") ? "PHISHING DETECTED" : raw.includes("SUSPICIOUS") ? "SUSPICIOUS" : "SAFE";
+  var riskMatch = raw.match(/Risk:\s*(\d+)/);
+  var risk = riskMatch ? parseInt(riskMatch[1]) : 0;
+  var msgMatch = raw.match(/\d+%\s*\|\s*(.+?)\s*\[/);
+  var msg = msgMatch ? msgMatch[1] : raw;
+  var color = decision === "PHISHING DETECTED" ? "var(--red)" : decision === "SUSPICIOUS" ? "var(--orange)" : "var(--green)";
+  var icon  = decision === "PHISHING DETECTED" ? "&#x1F6A8;" : decision === "SUSPICIOUS" ? "&#x26A0;" : "&#x2705;";
+  rcard.style.display    = "block";
+  rcard.style.background = decision === "PHISHING DETECTED" ? "rgba(255,59,92,0.05)" : decision === "SUSPICIOUS" ? "rgba(255,184,0,0.05)" : "rgba(0,255,136,0.04)";
+  rcard.style.border     = decision === "PHISHING DETECTED" ? "1px solid rgba(255,59,92,0.4)" : decision === "SUSPICIOUS" ? "1px solid rgba(255,184,0,0.4)" : "1px solid rgba(0,255,136,0.3)";
+  document.getElementById("urlResultIcon").innerHTML  = icon;
+  document.getElementById("urlResultTitle").style.color = color;
+  document.getElementById("urlResultTitle").textContent = decision;
+  document.getElementById("urlResultMsg").textContent   = msg.trim();
+  document.getElementById("urlRiskNum").style.color     = color;
+  document.getElementById("urlRiskNum").textContent     = risk + "%";
+  // Update live check grid
+  var u = url.toLowerCase();
+  function setCheck(id, valId, ok, label2) {
+    var el  = document.getElementById(id);
+    var vel = document.getElementById(valId);
+    el.style.borderColor = ok ? "rgba(0,255,136,0.3)" : "rgba(255,59,92,0.4)";
+    el.style.background  = ok ? "rgba(0,255,136,0.04)" : "rgba(255,59,92,0.06)";
+    vel.style.color      = ok ? "var(--green)" : "var(--red)";
+    vel.textContent      = label2;
+  }
+  setCheck("uc-protocol","uc-proto-val", u.startsWith("https"), u.startsWith("https") ? "HTTPS ✓" : "HTTP ✗");
+  var hasIP = /\d+\.\d+\.\d+\.\d+/.test(u);
+  setCheck("uc-ip","uc-ip-val", !hasIP, hasIP ? "DETECTED ✗" : "NONE ✓");
+  var badTLDs = [".xyz",".tk",".ml",".ga",".top",".click"];
+  var tldHit  = badTLDs.find(function(t){return u.includes(t);});
+  setCheck("uc-tld","uc-tld-val", !tldHit, tldHit || "CLEAN ✓");
+  var sigs = ["free","verify","login","urgent","prize","winner","suspended"];
+  var sigHit = sigs.filter(function(s){return u.includes(s);});
+  setCheck("uc-signals","uc-signals-val", sigHit.length===0, sigHit.length ? sigHit.length + " FOUND ✗" : "NONE ✓");
+  var homoglyphs = ["paypa1","g00gle","arnazon","micros0ft","app1e"];
+  var hgHit = homoglyphs.some(function(h){return u.includes(h);});
+  setCheck("uc-homoglyph","uc-hg-val", !hgHit, hgHit ? "DETECTED ✗" : "NONE ✓");
+  try {
+    var dom = (new URL(u.startsWith("http") ? u : "https://"+u)).hostname;
+    var dots = (dom.match(/\./g)||[]).length;
+    setCheck("uc-sub","uc-sub-val", dots < 4, dots >= 4 ? dots + " LEVELS ✗" : dots + " LEVELS ✓");
+  } catch(e) { document.getElementById("uc-sub-val").textContent = "—"; }
+};
+</script>
 
 </body>
 </html>
