@@ -1,8 +1,12 @@
-import re, json, math, numpy as np
-from flask import Flask, request, jsonify
+import re, json, math, os, numpy as np
+from flask import Flask, request, jsonify, send_from_directory
 
 MODEL_FILE = "model.json"
-app = Flask(__name__)
+
+# Resolve the frontend folder relative to this file (works from any working dir)
+FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
+
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 
 # ---- CORS: allow ALL origins (file://, localhost, any port) ------------------
 @app.after_request
@@ -150,6 +154,12 @@ def predict_route():
 
 @app.route("/")
 def home():
+    """Serve the main frontend page."""
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+@app.route("/api/status")
+def api_status():
+    """JSON status endpoint (was the old / route)."""
     return jsonify({
         "status":   "running",
         "model":    META["best_model"],
