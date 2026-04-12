@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>DHPS Safety Map</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/dashboard.css">
+
+  <!-- Leaflet.js — 100% FREE, no API key needed -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet Routing Machine — free routing via OSRM -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+  <style>
+    .map-page { padding: 0 32px 80px; max-width: 1300px; margin: 0 auto; }
+    .map-title {
+      font-family: var(--font-display); font-size: 22px; font-weight: 900;
+      color: var(--cyan); text-align: center; padding: 40px 32px 0;
+      letter-spacing: 3px; text-transform: uppercase;
+    }
+    .map-controls {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 28px 0 0;
+    }
+    .map-controls button {
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px;
+      padding: 9px 18px; border: 1px solid var(--border-bright);
+      background: var(--surface); color: var(--cyan);
+      cursor: pointer; transition: background 0.2s, box-shadow 0.2s; text-transform: uppercase;
+    }
+    .map-controls button:hover { background: var(--surface2); box-shadow: 0 0 10px rgba(0,234,255,0.15); }
+    .map-controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+    .map-controls button.btn-danger { border-color: rgba(255,59,92,0.5); color: var(--red); }
+    .map-controls button.btn-danger:hover { background: rgba(255,59,92,0.08); }
+    .map-controls button.btn-green  { border-color: rgba(0,255,136,0.5); color: var(--green); }
+    .map-controls button.btn-green:hover  { background: rgba(0,255,136,0.07); }
+    .map-layout {
+      display: grid; grid-template-columns: 1fr 320px;
+      gap: 1px; background: var(--border); border: 1px solid var(--border);
+      margin-top: 12px; min-height: 560px;
+    }
+    #map { width: 100%; min-height: 560px; background: #060e1a; }
+    .leaflet-container { background: #050d1a !important; font-family: var(--font-ui); }
+    .leaflet-tile { filter: invert(1) hue-rotate(180deg) saturate(0.6) brightness(0.75); }
+    .leaflet-control-zoom a {
+      background: var(--bg2) !important; color: var(--cyan) !important;
+      border-color: var(--border) !important; font-family: var(--font-mono);
+    }
+    .leaflet-control-zoom a:hover { background: var(--surface2) !important; }
+    .leaflet-popup-content-wrapper {
+      background: #060e1a; border: 1px solid rgba(0,234,255,0.3);
+      color: var(--text); border-radius: 0; box-shadow: 0 0 20px rgba(0,234,255,0.1);
+    }
+    .leaflet-popup-tip { background: #060e1a; }
+    .leaflet-popup-content { font-family: var(--font-mono); font-size: 11px; line-height: 1.6; }
+    .leaflet-routing-container { display: none !important; }
+    .map-sidebar { background: var(--bg2); display: flex; flex-direction: column; }
+    .sidebar-section { border-bottom: 1px solid var(--border); padding: 18px 16px; }
+    .sidebar-section:last-child { border-bottom: none; }
+    .sidebar-title {
+      font-family: var(--font-display); font-size: 12px; font-weight: 700;
+      color: var(--cyan); letter-spacing: 2px; margin-bottom: 12px;
+    }
+    .sidebar-label {
+      font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px;
+      color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px;
+    }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px;
+      padding: 4px 10px; border: 1px solid; text-transform: uppercase;
+    }
+    .status-pill.tracking { border-color: rgba(0,255,136,0.4); color: var(--green); background: rgba(0,255,136,0.06); }
+    .status-pill.idle     { border-color: var(--border); color: var(--text-dim); }
+    .status-dot-sm { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .status-dot-sm.pulse { animation: blink 1.5s ease-in-out infinite; }
+    #coordBox { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 8px; line-height: 1.8; }
+    #routeInfo {
+      display: none; margin-top: 8px; padding: 10px 14px;
+      border: 1px solid rgba(0,255,136,0.3); background: rgba(0,255,136,0.04);
+      font-family: var(--font-mono); font-size: 11px; color: var(--green); letter-spacing: 1px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); font-size: 13px; color: var(--text); margin-bottom: 7px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .dz-form { display: flex; flex-direction: column; gap: 8px; }
+    .dz-form input, .dz-form select {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font-mono); font-size: 11px;
+      padding: 7px 10px; width: 100%; outline: none; transition: border-color 0.2s;
+    }
+    .dz-form input:focus, .dz-form select:focus { border-color: var(--border-bright); }
+    .dz-form select option { background: #0a1628; }
+    #dzModeIndicator { display: none; margin-top: 8px; font-family: var(--font-mono); font-size: 10px; color: var(--orange); letter-spacing: 1px; }
+    .nearby-search { display: flex; gap: 6px; margin-bottom: 10px; }
+    .nearby-search input {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 6px 10px; outline: none;
+    }
+    .nearby-search input:focus { border-color: var(--border-bright); }
+    .nearby-search button {
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px;
+      padding: 6px 10px; border: 1px solid rgba(0,234,255,0.4);
+      background: var(--surface); color: var(--cyan); cursor: pointer;
+    }
+    .nearby-search button:hover { background: var(--surface2); }
+    #nearbyList { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+    .nearby-item { padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; color: var(--text); cursor: pointer; transition: border-color 0.2s; }
+    .nearby-item:hover { border-color: var(--border-bright); }
+    .nearby-name { font-weight: 600; color: var(--cyan); margin-bottom: 2px; font-family: var(--font-ui); }
+    .nearby-type { font-family: var(--font-mono); font-size: 9px; letter-spacing: 1px; color: var(--text-dim); }
+    .nearby-dist { font-family: var(--font-mono); font-size: 10px; color: var(--green); float: right; }
+    #mapAlert {
+      display: none; position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      z-index: 9999; font-family: var(--font-mono); font-size: 12px; letter-spacing: 1px;
+      padding: 12px 24px; border: 1px solid; backdrop-filter: blur(8px);
+      text-transform: uppercase; white-space: nowrap;
+    }
+    @media (max-width: 900px) { .map-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<nav class="dash-nav">
+  <a href="index.html" class="dash-nav-logo">&#x2190; DHPS</a>
+  <span class="dash-nav-title">LOCATION SAFETY MODULE</span>
+  <div class="dash-nav-right">
+    <span class="status-dot"></span>
+    LIVE
+  </div>
+</nav>
+
+<div class="map-page">
+  <h1 class="map-title">DHPS // Location Safety Map</h1>
+
+  <div class="map-controls">
+    <button class="btn-green" onclick="locateMe()">&#x25CF; Get My Location</button>
+    <button onclick="findNearby('hospital')">&#x1F3E5; Hospitals</button>
+    <button onclick="findNearby('police')">&#x1F46E; Police Stations</button>
+    <button onclick="findNearby('fire')">&#x1F692; Fire Stations</button>
+    <button id="btnSafeRoute" onclick="startRouting()" disabled>&#x1F9ED; Suggest Safe Route</button>
+    <button class="btn-danger" onclick="clearDangerZones()">&#x2715; Clear Danger Zones</button>
+    <button onclick="clearRoute()">&#x21BA; Clear Route</button>
+  </div>
+
+  <div class="map-layout">
+    <div id="map"></div>
+    <div class="map-sidebar">
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">&#x25CF; LIVE LOCATION</div>
+        <div id="trackingStatus" class="status-pill idle"><span class="status-dot-sm"></span> WAITING</div>
+        <div id="coordBox">LAT: --<br>LNG: --<br>ACCURACY: --</div>
+        <div id="routeInfo"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">&#x25A0; MAP LEGEND</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00eaff;box-shadow:0 0 6px #00eaff;"></div> Your Location</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff3b5c;"></div> Danger Zone</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00ff88;"></div> Hospital</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00b4ff;"></div> Police Station</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffb800;"></div> Fire Station</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a259ff;border-radius:2px;"></div> Safe Route</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">&#x26A0; ADD DANGER ZONE</div>
+        <div class="sidebar-label">Click map to place after enabling</div>
+        <div class="dz-form">
+          <input type="text" id="dzLabel" placeholder="Zone label (e.g. High Crime Area)"/>
+          <select id="dzLevel">
+            <option value="high">HIGH RISK</option>
+            <option value="medium">MEDIUM RISK</option>
+            <option value="low">LOW RISK</option>
+          </select>
+          <button class="btn-danger" style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;padding:8px;border:1px solid rgba(255,59,92,0.5);background:rgba(255,59,92,0.05);color:var(--red);cursor:pointer;text-transform:uppercase;" onclick="enableDangerZonePlacement()">&#x2295; Enable Click-to-Place</button>
+        </div>
+        <div id="dzModeIndicator">&#x25B6; CLICK MAP TO PLACE ZONE</div>
+      </div>
+
+      <div class="sidebar-section" style="flex:1;">
+        <div class="sidebar-title">&#x1F4CD; NEARBY SERVICES</div>
+        <div class="nearby-search">
+          <input type="text" id="nearbySearch" placeholder="Search place name..."/>
+          <button onclick="searchNearbyByName()">GO</button>
+        </div>
+        <div id="nearbyList">
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">Use buttons above to find nearby emergency services.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="mapAlert"></div>
+
+<script>
+var map, userMarker, accuracyCircle, routingControl;
+var dangerZones = [], helpMarkers = [];
+var userPosition = null, placingDanger = false, pickingDest = false, watchId = null;
+
+var RISK = {
+  high:   { color: '#ff3b5c', fill: 'rgba(255,59,92,0.18)',  radius: 300 },
+  medium: { color: '#ffb800', fill: 'rgba(255,184,0,0.14)',  radius: 200 },
+  low:    { color: '#ffee58', fill: 'rgba(255,238,88,0.10)', radius: 120 }
+};
+var CATS = {
+  hospital: { query: 'amenity=hospital',    color: '#00ff88', emoji: '🏥', label: 'Hospital' },
+  police:   { query: 'amenity=police',       color: '#00b4ff', emoji: '👮', label: 'Police Station' },
+  fire:     { query: 'amenity=fire_station', color: '#ffb800', emoji: '🚒', label: 'Fire Station' }
+};
+
+window.addEventListener('load', function() {
+  map = L.map('map', { zoomControl: true }).setView([20.5937, 78.9629], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+  }).addTo(map);
+
+  map.on('click', function(e) {
+    if (placingDanger) {
+      addDangerZone(e.latlng.lat, e.latlng.lng);
+      placingDanger = false;
+      document.getElementById('dzModeIndicator').style.display = 'none';
+      map._container.style.cursor = '';
+    } else if (pickingDest) {
+      pickingDest = false;
+      map._container.style.cursor = '';
+      calcRoute(userPosition, [e.latlng.lat, e.latlng.lng]);
+    }
+  });
+});
+
+// FEATURE 1 — Live Location
+function locateMe() {
+  if (!navigator.geolocation) { showAlert('Geolocation not supported.', 'red'); return; }
+  showAlert('Requesting GPS location...', 'cyan');
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    onLocation(pos);
+    showAlert('Location acquired. Tracking active.', 'green');
+    var st = document.getElementById('trackingStatus');
+    st.className = 'status-pill tracking';
+    st.innerHTML = '<span class="status-dot-sm pulse"></span> TRACKING';
+    document.getElementById('btnSafeRoute').disabled = false;
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(onLocation, onLocErr, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 });
+  }, onLocErr, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+function onLocation(pos) {
+  var lat = pos.coords.latitude, lng = pos.coords.longitude, acc = Math.round(pos.coords.accuracy);
+  userPosition = [lat, lng];
+  document.getElementById('coordBox').innerHTML =
+    'LAT: <span style="color:var(--cyan)">' + lat.toFixed(6) + '</span><br>' +
+    'LNG: <span style="color:var(--cyan)">' + lng.toFixed(6) + '</span><br>' +
+    'ACCURACY: <span style="color:var(--green)">±' + acc + 'm</span>';
+  var icon = L.divIcon({
+    className: '',
+    html: '<div style="width:16px;height:16px;border-radius:50%;background:#00eaff;border:2px solid #fff;box-shadow:0 0 12px #00eaff;"></div>',
+    iconSize: [16,16], iconAnchor: [8,8]
+  });
+  if (userMarker) {
+    userMarker.setLatLng([lat, lng]);
+    if (accuracyCircle) accuracyCircle.setLatLng([lat, lng]).setRadius(acc);
+  } else {
+    userMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 1000 }).addTo(map)
+      .bindPopup('<span style="color:#00eaff">&#x25CF; YOU ARE HERE</span>');
+    accuracyCircle = L.circle([lat, lng], { radius: acc, color: 'rgba(0,234,255,0.4)', fillColor: 'rgba(0,234,255,0.07)', fillOpacity: 1, weight: 1 }).addTo(map);
+    map.setView([lat, lng], 15);
+  }
+  checkProximity(lat, lng);
+}
+function onLocErr(e) { showAlert('GPS Error: ' + e.message, 'red'); }
+
+// FEATURE 2 — Danger Zones
+function enableDangerZonePlacement() {
+  placingDanger = true; pickingDest = false;
+  document.getElementById('dzModeIndicator').style.display = 'block';
+  map._container.style.cursor = 'crosshair';
+  showAlert('Click anywhere on the map to place a danger zone.', 'orange');
+}
+function addDangerZone(lat, lng) {
+  var label = document.getElementById('dzLabel').value.trim() || 'Danger Zone';
+  var level = document.getElementById('dzLevel').value;
+  var cfg = RISK[level];
+  var circle = L.circle([lat, lng], { radius: cfg.radius, color: cfg.color, weight: 2, fillColor: cfg.fill, fillOpacity: 1 }).addTo(map);
+  var icon = L.divIcon({ className: '', html: '<div style="font-size:18px;">⚠</div>', iconSize: [20,20], iconAnchor: [10,10] });
+  var marker = L.marker([lat, lng], { icon: icon }).addTo(map)
+    .bindPopup('<b style="color:' + cfg.color + '">' + label + '</b><br><span style="font-size:10px;">' + level.toUpperCase() + ' RISK</span>');
+  dangerZones.push({ circle: circle, marker: marker, lat: lat, lng: lng, label: label, level: level });
+  document.getElementById('dzLabel').value = '';
+  showAlert('Danger zone "' + label + '" placed.', level === 'high' ? 'red' : 'orange');
+}
+function clearDangerZones() {
+  dangerZones.forEach(function(dz) { map.removeLayer(dz.circle); map.removeLayer(dz.marker); });
+  dangerZones = [];
+  showAlert('All danger zones cleared.', 'cyan');
+}
+function checkProximity(lat, lng) {
+  dangerZones.forEach(function(dz) {
+    var d = haversine(lat, lng, dz.lat, dz.lng);
+    if (d < RISK[dz.level].radius + 60)
+      showAlert('WARNING: Near "' + dz.label + '" — ' + dz.level.toUpperCase() + ' RISK!', 'red');
+  });
+}
+
+// FEATURE 3 — Safe Route (OSRM — free)
+function startRouting() {
+  if (!userPosition) { showAlert('Get your location first.', 'orange'); return; }
+  pickingDest = true; placingDanger = false;
+  document.getElementById('dzModeIndicator').style.display = 'none';
+  map._container.style.cursor = 'crosshair';
+  showAlert('Click on the map to set your destination.', 'cyan');
+}
+function calcRoute(origin, dest) {
+  if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+  showAlert('Calculating route...', 'cyan');
+  routingControl = L.Routing.control({
+    waypoints: [L.latLng(origin[0], origin[1]), L.latLng(dest[0], dest[1])],
+    router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
+    lineOptions: { styles: [{ color: '#a259ff', weight: 5, opacity: 0.85 }] },
+    createMarker: function(i, wp) {
+      var icon = L.divIcon({
+        className: '',
+        html: '<div style="width:12px;height:12px;border-radius:50%;background:' + (i===0?'#00eaff':'#a259ff') + ';border:2px solid #fff;box-shadow:0 0 8px currentColor;"></div>',
+        iconSize: [12,12], iconAnchor: [6,6]
+      });
+      return L.marker(wp.latLng, { icon: icon });
+    },
+    show: false, addWaypoints: false, fitSelectedRoutes: true
+  }).addTo(map);
+  routingControl.on('routesfound', function(e) {
+    var r = e.routes[0];
+    var km = (r.summary.totalDistance / 1000).toFixed(2);
+    var min = Math.round(r.summary.totalTime / 60);
+    var info = document.getElementById('routeInfo');
+    info.style.display = 'block';
+    info.innerHTML = '&#x1F9ED; SAFE ROUTE<br><span style="color:var(--text)">DIST: ' + km + ' km</span><br><span style="color:var(--text)">ETA: ' + min + ' min (walking)</span>';
+    showAlert('Route ready. Follow the purple path.', 'green');
+  });
+  routingControl.on('routingerror', function() { showAlert('Could not calculate route. Try different points.', 'red'); });
+}
+function clearRoute() {
+  if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+  document.getElementById('routeInfo').style.display = 'none';
+  showAlert('Route cleared.', 'cyan');
+}
+
+// FEATURE 4 — Nearby Help Points (Overpass API — free)
+function findNearby(type) {
+  if (!userPosition) { showAlert('Get your location first.', 'orange'); return; }
+  var cat = CATS[type];
+  showAlert('Searching nearby ' + cat.label + 's...', 'cyan');
+  helpMarkers = helpMarkers.filter(function(m) {
+    if (m._cat === type) { map.removeLayer(m); return false; }
+    return true;
+  });
+  var lat = userPosition[0], lng = userPosition[1];
+  var query = '[out:json][timeout:15];node[' + cat.query + '](around:5000,' + lat + ',' + lng + ');out 10;';
+  fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var list = document.getElementById('nearbyList');
+      list.querySelectorAll('[data-cat="' + type + '"]').forEach(function(el) { el.remove(); });
+      var ph = list.querySelector('.ph'); if (ph) ph.remove();
+      if (!data.elements || !data.elements.length) { showAlert('No ' + cat.label + 's found within 5km.', 'orange'); return; }
+      data.elements.slice(0,6).forEach(function(el) {
+        var name = (el.tags && (el.tags.name || el.tags['name:en'])) || cat.label;
+        var elat = el.lat, elng = el.lon;
+        var dist = haversine(lat, lng, elat, elng);
+        var ds = dist > 1000 ? (dist/1000).toFixed(1)+'km' : Math.round(dist)+'m';
+        var icon = L.divIcon({ className: '', html: '<div style="font-size:20px;filter:drop-shadow(0 0 4px ' + cat.color + ');">' + cat.emoji + '</div>', iconSize: [24,24], iconAnchor: [12,12] });
+        var marker = L.marker([elat, elng], { icon: icon }).addTo(map)
+          .bindPopup('<b style="color:' + cat.color + '">' + name + '</b><br><span style="font-size:10px;color:var(--text-dim);">' + cat.label + ' · ' + ds + '</span>');
+        marker._cat = type; helpMarkers.push(marker);
+        var item = document.createElement('div');
+        item.className = 'nearby-item'; item.setAttribute('data-cat', type);
+        item.innerHTML = '<span class="nearby-dist">' + ds + '</span><div class="nearby-name">' + name + '</div><div class="nearby-type">' + cat.label + '</div>';
+        item.onclick = function() { map.setView([elat, elng], 17); marker.openPopup(); };
+        list.appendChild(item);
+      });
+      showAlert(data.elements.length + ' ' + cat.label + '(s) found.', 'green');
+    })
+    .catch(function() { showAlert('Network error. Check internet connection.', 'red'); });
+}
+
+function searchNearbyByName() {
+  var q = document.getElementById('nearbySearch').value.trim();
+  if (!q) return;
+  showAlert('Searching for "' + q + '"...', 'cyan');
+  fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=5', { headers: { 'Accept-Language': 'en' } })
+    .then(function(r) { return r.json(); })
+    .then(function(results) {
+      var list = document.getElementById('nearbyList');
+      list.querySelectorAll('[data-cat="search"]').forEach(function(el) { el.remove(); });
+      if (!results.length) { showAlert('No results for "' + q + '".', 'orange'); return; }
+      results.forEach(function(place) {
+        var elat = parseFloat(place.lat), elng = parseFloat(place.lon);
+        var name = place.display_name.split(',').slice(0,2).join(',');
+        var dist = userPosition ? haversine(userPosition[0], userPosition[1], elat, elng) : null;
+        var ds = dist ? (dist > 1000 ? (dist/1000).toFixed(1)+'km' : Math.round(dist)+'m') : '';
+        var icon = L.divIcon({ className: '', html: '<div style="font-size:18px;">📍</div>', iconSize: [20,20], iconAnchor: [10,10] });
+        var marker = L.marker([elat, elng], { icon: icon }).addTo(map).bindPopup('<b style="color:var(--cyan)">' + name + '</b>');
+        marker._cat = 'search'; helpMarkers.push(marker);
+        var item = document.createElement('div');
+        item.className = 'nearby-item'; item.setAttribute('data-cat', 'search');
+        item.innerHTML = (ds ? '<span class="nearby-dist">' + ds + '</span>' : '') + '<div class="nearby-name">' + name + '</div><div class="nearby-type">Search Result</div>';
+        item.onclick = function() { map.setView([elat, elng], 16); marker.openPopup(); };
+        list.appendChild(item);
+      });
+      showAlert(results.length + ' result(s) found.', 'green');
+    })
+    .catch(function() { showAlert('Search failed. Check internet connection.', 'red'); });
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  var R = 6371000, dL = (lat2-lat1)*Math.PI/180, dG = (lng2-lng1)*Math.PI/180;
+  var a = Math.sin(dL/2)*Math.sin(dL/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dG/2)*Math.sin(dG/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+var _at;
+function showAlert(msg, color) {
+  var el = document.getElementById('mapAlert');
+  var c = { green:{ border:'rgba(0,255,136,0.5)',bg:'rgba(0,255,136,0.08)',text:'#00ff88' }, red:{ border:'rgba(255,59,92,0.5)',bg:'rgba(255,59,92,0.08)',text:'#ff3b5c' }, cyan:{ border:'rgba(0,234,255,0.5)',bg:'rgba(0,234,255,0.08)',text:'#00eaff' }, orange:{ border:'rgba(255,184,0,0.5)',bg:'rgba(255,184,0,0.08)',text:'#ffb800' } }[color]||{};
+  el.style.borderColor=c.border; el.style.background=c.bg; el.style.color=c.text;
+  el.textContent=msg; el.style.display='block';
+  if (_at) clearTimeout(_at);
+  _at = setTimeout(function(){ el.style.display='none'; }, 4000);
+}
+</script>
+</body>
+</html>
