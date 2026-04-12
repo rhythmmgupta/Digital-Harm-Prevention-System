@@ -8,6 +8,7 @@
   <script defer src="js/riskEngine.js"></script>
   <script defer src="js/behaviorMonitor.js"></script>
   <script defer src="js/fakeNewsAI.js"></script>
+  <script defer src="js/main.js"></script>
 </head>
 <body>
 
@@ -460,7 +461,10 @@
         </div>
       </div>
       <div id="sensitiveFoundTags" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+      <div id="sensitiveDetails" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);"></div>
+      <div id="sensitiveSourceBadge" style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-top:8px;letter-spacing:1px;"></div>
     </div>
+    <div id="sensitiveStages" style="margin-bottom:8px;"></div>
 
     <div class="modal-buttons">
       <button onclick="scanSensitive()" id="sensitiveBtn">&#x1F50D; Scan Message</button>

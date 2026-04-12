@@ -260,6 +260,107 @@
 
     @keyframes scan { 0%{top:0;opacity:1} 100%{top:100%;opacity:0} }
 
+    /* ── GOOGLE BUTTON ── */
+    .google-btn {
+      width: 100%;
+      padding: 13px 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+      margin-bottom: 0;
+    }
+    .google-btn:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(255,255,255,0.3);
+      box-shadow: 0 0 16px rgba(255,255,255,0.06);
+    }
+    .google-btn:active { transform: scale(0.99); }
+
+    /* ── GOOGLE OVERLAY ── */
+    #googleOverlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(3,8,16,0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .google-popup {
+      background: #fff;
+      border-radius: 8px;
+      padding: 40px 36px;
+      width: 340px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+      text-align: center;
+      position: relative;
+      animation: fade-up 0.3s both;
+    }
+    .gp-close {
+      position: absolute; top: 12px; right: 14px;
+      background: none; border: none; font-size: 20px;
+      color: #888; cursor: pointer; line-height: 1;
+    }
+    .gp-logo { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+    .gp-logo span { color: #4285F4; }
+    .gp-logo span:nth-child(2) { color: #EA4335; }
+    .gp-logo span:nth-child(3) { color: #FBBC05; }
+    .gp-logo span:nth-child(4) { color: #4285F4; }
+    .gp-logo span:nth-child(5) { color: #34A853; }
+    .gp-logo span:nth-child(6) { color: #EA4335; }
+    .gp-subtitle { font-size: 13px; color: #555; margin-bottom: 24px; font-family: sans-serif; }
+    .gp-email-input {
+      width: 100%; padding: 12px 14px; border: 1px solid #ddd;
+      border-radius: 4px; font-size: 14px; outline: none;
+      box-sizing: border-box; margin-bottom: 8px;
+      font-family: sans-serif; color: #333;
+      transition: border-color 0.2s;
+    }
+    .gp-email-input:focus { border-color: #4285F4; box-shadow: 0 0 0 3px rgba(66,133,244,0.15); }
+    .gp-error { font-size: 12px; color: #d93025; min-height: 16px; margin-bottom: 12px; font-family: sans-serif; text-align: left; }
+    .gp-next-btn {
+      width: 100%; padding: 11px;
+      background: #4285F4; color: #fff; border: none;
+      border-radius: 4px; font-size: 14px; font-weight: 500;
+      cursor: pointer; font-family: sans-serif;
+      transition: background 0.2s;
+    }
+    .gp-next-btn:hover { background: #3367d6; }
+    .gp-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+    .gp-divider span { font-size: 11px; color: #999; font-family: sans-serif; }
+    .gp-divider hr { flex: 1; border: none; border-top: 1px solid #eee; }
+    .gp-accounts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .gp-account-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid #eee; border-radius: 4px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .gp-account-row:hover { background: #f5f5f5; }
+    .gp-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 600; color: #fff; flex-shrink: 0;
+    }
+    .gp-account-info { text-align: left; }
+    .gp-account-name { font-size: 13px; font-weight: 500; color: #333; font-family: sans-serif; }
+    .gp-account-email { font-size: 12px; color: #666; font-family: sans-serif; }
+    .gp-footer { font-size: 11px; color: #999; font-family: sans-serif; margin-top: 12px; }
+    .gp-footer a { color: #4285F4; text-decoration: none; }
+    .gp-scanning {
+      font-family: monospace; font-size: 11px; color: #4285F4;
+      margin-top: 14px; letter-spacing: 1px;
+    }
+
     /* error shake */
     @keyframes shake {
       0%,100%{transform:translateX(0)}
@@ -327,7 +428,17 @@
       <span class="divider-line"></span>
     </div>
 
-    <p class="login-footer-text">
+    <button class="google-btn" onclick="handleGoogleLogin()">
+      <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      <span>Continue with Google</span>
+    </button>
+
+    <p class="login-footer-text" style="margin-top:20px;">
       New operator? <a href="#">Request access &rarr;</a>
     </p>
 
@@ -389,7 +500,101 @@
 
   /* ── ENTER KEY ── */
   document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+
+  /* ── GOOGLE LOGIN ── */
+  var _accounts = [
+    { name: 'Security Admin', email: 'admin@dhps.secure', color: '#4285F4', initials: 'SA' },
+    { name: 'Analyst One',    email: 'analyst@dhps.secure', color: '#34A853', initials: 'A1' },
+  ];
+
+  function handleGoogleLogin() {
+    var ov = document.getElementById('googleOverlay');
+    ov.style.display = 'flex';
+    showAccountPicker();
+  }
+
+  function closeGooglePopup() {
+    document.getElementById('googleOverlay').style.display = 'none';
+  }
+
+  function showAccountPicker() {
+    var rows = _accounts.map(function(a) {
+      return '<div class="gp-account-row" onclick="selectAccount(\''+a.email+'\',\''+a.name+'\')">'+
+        '<div class="gp-avatar" style="background:'+a.color+'">'+a.initials+'</div>'+
+        '<div class="gp-account-info"><div class="gp-account-name">'+a.name+'</div><div class="gp-account-email">'+a.email+'</div></div></div>';
+    }).join('');
+    rows += '<div class="gp-account-row" onclick="showEmailEntry()">'+
+      '<div class="gp-avatar" style="background:#888;font-size:20px;">+</div>'+
+      '<div class="gp-account-info"><div class="gp-account-name">Use another account</div></div></div>';
+
+    document.getElementById('gpBody').innerHTML =
+      '<button class="gp-close" onclick="closeGooglePopup()">&#x2715;</button>'+
+      '<div class="gp-logo"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></div>'+
+      '<div class="gp-subtitle">Choose an account to continue to DHPS</div>'+
+      '<div class="gp-accounts">'+rows+'</div>'+
+      '<div class="gp-footer">Google will share your name and email with DHPS. <a href="#">Privacy Policy</a></div>';
+  }
+
+  function showEmailEntry() {
+    document.getElementById('gpBody').innerHTML =
+      '<button class="gp-close" onclick="closeGooglePopup()">&#x2715;</button>'+
+      '<div class="gp-logo"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></div>'+
+      '<div class="gp-subtitle">Sign in with your Google account</div>'+
+      '<input class="gp-email-input" id="gpEmail" type="email" placeholder="Email or phone">'+
+      '<div class="gp-error" id="gpError"></div>'+
+      '<button class="gp-next-btn" onclick="submitGoogleEmail()">Next</button>'+
+      '<div class="gp-footer" style="margin-top:12px;"><a href="#">Create account</a></div>';
+    setTimeout(function(){ var e=document.getElementById('gpEmail'); if(e) e.focus(); },100);
+  }
+
+  function submitGoogleEmail() {
+    var email = (document.getElementById('gpEmail')||{}).value||'';
+    var errEl = document.getElementById('gpError');
+    if (!email || !email.includes('@')) { if(errEl) errEl.textContent='Enter a valid email address.'; return; }
+    selectAccount(email, email.split('@')[0]);
+  }
+
+  function selectAccount(email, name) {
+    document.getElementById('gpBody').innerHTML =
+      '<div style="text-align:center;padding:20px 0;">'+
+      '<div style="font-size:36px;margin-bottom:16px;">&#x1F510;</div>'+
+      '<div class="gp-scanning" id="gpScanMsg">Verifying identity...</div>'+
+      '<div style="margin-top:14px;height:3px;background:#eee;border-radius:2px;overflow:hidden;">'+
+      '<div id="gpScanBar" style="height:100%;width:0%;background:#4285F4;transition:width 1.8s ease;"></div></div>'+
+      '<div style="font-family:sans-serif;font-size:12px;color:#888;margin-top:12px;">'+email+'</div></div>';
+
+    setTimeout(function(){ var b=document.getElementById('gpScanBar'); if(b) b.style.width='100%'; },50);
+    var steps=['Verifying identity...','Checking clearance level...','Authenticating with DHPS...','Access granted!'];
+    var si=0;
+    var iv=setInterval(function(){
+      si++;
+      var el=document.getElementById('gpScanMsg');
+      if(el&&si<steps.length) el.textContent=steps[si];
+      if(si>=steps.length-1){
+        clearInterval(iv);
+        setTimeout(function(){
+          closeGooglePopup();
+          var msg=document.getElementById('loginMsg');
+          var btn=document.querySelector('.login-btn');
+          var card=document.getElementById('loginCard');
+          msg.style.color='var(--green)';
+          msg.textContent='\u2714 Google auth successful. Welcome, '+name+'!';
+          btn.textContent='ACCESS GRANTED';
+          btn.style.background='var(--green)';
+          card.classList.add('scanning');
+          setTimeout(function(){ window.location.href='dashboard.html'; },1400);
+        },600);
+      }
+    },500);
+  }
 </script>
+
+<!-- GOOGLE OVERLAY -->
+<div id="googleOverlay" style="position:fixed;inset:0;z-index:9999;background:rgba(3,8,16,0.85);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;">
+  <div class="google-popup">
+    <div id="gpBody"></div>
+  </div>
+</div>
 
 </body>
 </html>
